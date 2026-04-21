@@ -312,6 +312,55 @@ func (d *Database) GetBlockByHash(hash string) (*BlockMetadata, error) {
 	return &block, nil
 }
 
+// GetBlockByHeightAndHash retrieves a block by its height and hash.
+func (d *Database) GetBlockByHeightAndHash(height uint64, hash string) (*BlockMetadata, error) {
+	query := `
+		SELECT id, id_type, id_status, id_haiku, created_on,
+			   block_height, block_hash, parent_hash, miner_fee,
+			   file_size, entry_count, difficulty, duration
+		FROM block_metadata
+		WHERE block_height = ? AND block_hash = ?`
+
+	var block BlockMetadata
+	var haikuID sql.NullInt64
+
+	err := d.db.QueryRow(query, height, hash).Scan(
+		&block.ID, &block.Type, &block.Status, &haikuID, &block.CreatedOn,
+		&block.BlockHeight, &block.BlockHash, &block.ParentHash,
+		&block.MinerFee, &block.FileSize, &block.EntryCount,
+		&block.Difficulty, &block.Duration)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if haikuID.Valid {
+		block.HaikuID = &haikuID.Int64
+	}
+
+	return &block, nil
+}
+
+// GetLowestBlockHeight retrieves the lowest indexed block height in the database.
+func (d *Database) GetLowestBlockHeight() (*uint64, error) {
+	query := `SELECT MIN(block_height) FROM block_metadata WHERE block_height IS NOT NULL`
+
+	var height sql.NullInt64
+	err := d.db.QueryRow(query).Scan(&height)
+	if err != nil {
+		return nil, err
+	}
+	if !height.Valid {
+		return nil, nil
+	}
+
+	value := uint64(height.Int64)
+	return &value, nil
+}
+
 // GetBlocksByNumber retrieves all blocks at a given height
 func (d *Database) GetBlocksByNumber(height uint64) ([]*BlockMetadata, error) {
 	query := `

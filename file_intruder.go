@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/NickP005/go_mcminterface"
@@ -111,6 +112,29 @@ func readMinFeeMap(count uint32, tfile_path string) (map[uint32]uint64, error) {
 	}
 
 	return minFeeMap, nil
+}
+
+func iterateBlockTrailers(tfilePath string, handler func(go_mcminterface.BTRAILER) error) error {
+	tfile, err := os.Open(tfilePath)
+	if err != nil {
+		return err
+	}
+	defer tfile.Close()
+
+	for {
+		var btrailer go_mcminterface.BTRAILER
+		err := binary.Read(tfile, binary.LittleEndian, &btrailer)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if err := handler(btrailer); err != nil {
+			return err
+		}
+	}
 }
 
 // 0xhash.bc

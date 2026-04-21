@@ -28,12 +28,13 @@ func networkListHandler(w http.ResponseWriter, r *http.Request) {
 // /network/status
 
 type NetworkStatusResponse struct {
-	CurrentBlockIdentifier BlockIdentifier `json:"current_block_identifier"`
-	CurrentBlockTimestamp  int64           `json:"current_block_timestamp"`
-	GenesisBlockIdentifier BlockIdentifier `json:"genesis_block_identifier"`
-	OldestBlockIdentifier  BlockIdentifier `json:"oldest_block_identifier"`
-	SyncStatus             SyncStatus      `json:"sync_status"`
-	HttpsStatus            HttpsStatusInfo `json:"https_status"`
+	CurrentBlockIdentifier BlockIdentifier  `json:"current_block_identifier"`
+	CurrentBlockTimestamp  int64            `json:"current_block_timestamp"`
+	GenesisBlockIdentifier BlockIdentifier  `json:"genesis_block_identifier"`
+	OldestBlockIdentifier  BlockIdentifier  `json:"oldest_block_identifier"`
+	SyncStatus             SyncStatus       `json:"sync_status"`
+	BlockAudit             BlockAuditStatus `json:"block_audit"`
+	HttpsStatus            HttpsStatusInfo  `json:"https_status"`
 	//Peers                  []string        `json:"peers"`
 }
 
@@ -103,6 +104,7 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 			Stage:  Globals.LastSyncStage,
 			Synced: Globals.IsSynced,
 		},
+		BlockAudit:  snapshotBlockAuditStatus(),
 		HttpsStatus: httpsStatus,
 	}
 	json.NewEncoder(w).Encode(response)

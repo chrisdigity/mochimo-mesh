@@ -49,6 +49,7 @@ func Init() {
 				Globals.EnableIndexer = true
 
 				mlog(5, "§bInit(): §7Indexer database created")
+				StartStartupBlockAudit(db)
 			}()
 		}
 

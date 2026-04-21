@@ -137,6 +137,8 @@ These endpoints are available if a ledger file path is specified.
 | `-dbu`              | string   | "root"                      | Indexer user                                                              |
 | `-dbpw`             | string   | ""                          | Indexer password                                                          |
 | `-dbdb`             | string   | "mochimo"                   | Indexer database                                                          |
+| `-startup_audit`    | bool     | false                       | Run a background startup audit to reconcile canonical block hashes        |
+| `-startup_audit_repair` | bool | true                        | Repair missing canonical blocks found by the startup audit               |
 
 ### Environment Variables
 
@@ -231,6 +233,16 @@ To enable the indexer, you need to configure the database connection and enable 
     ```bash
     ./mesh -indexer -dbh your_db_host -dbp your_db_port -dbu your_db_user -dbpw your_db_password -dbdb your_db_name
     ```
+
+4.  **Startup Audit (Optional)**:
+
+    When enabled, the startup audit scans the full `tfile.dat` history, looks for the first block hash already present in the indexer database, and then audits forward from that overlap point. Any canonical block hash present in `tfile.dat` but missing from the database is reported and, if repair mode is enabled, fetched and pushed into the indexer.
+
+    ```bash
+    ./mesh -indexer -startup_audit -startup_audit_repair
+    ```
+
+    The audit runs in the background and does not block normal API startup or steady-state tip indexing. Audit progress is exposed through `/network/status` in the `block_audit` section.
 
 ## Statistics Configuration
 
