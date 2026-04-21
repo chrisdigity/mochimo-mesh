@@ -122,16 +122,8 @@ func getBlockInDataFolder(bhash string) (go_mcminterface.Block, error) {
 	// folder
 	folder := "data/blocks/" + bhash + ".bc"
 
-	// open the file
-	file, err := os.Open(folder)
-	if err != nil {
-		return go_mcminterface.Block{}, err
-	}
-	defer file.Close()
-
 	// read the file
-	var block_bytes []byte
-	_, err = file.Read(block_bytes)
+	block_bytes, err := os.ReadFile(folder)
 	if err != nil {
 		return go_mcminterface.Block{}, err
 	}
