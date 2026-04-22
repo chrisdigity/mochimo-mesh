@@ -14,19 +14,15 @@ import (
 type BlockAuditStatus struct {
 	Enabled            bool   `json:"enabled"`
 	RepairEnabled      bool   `json:"repair_enabled"`
-	Running            bool   `json:"running"`
 	Stage              string `json:"stage"`
 	StartedAt          int64  `json:"started_at,omitempty"`
 	FinishedAt         int64  `json:"finished_at,omitempty"`
 	CurrentHeight      uint64 `json:"current_height"`
 	FirstOverlapHeight uint64 `json:"first_overlap_height,omitempty"`
 	InitialDBHeight    uint64 `json:"initial_db_height,omitempty"`
-	OverlapFound       bool   `json:"overlap_found"`
 	ScannedCount       uint64 `json:"scanned_count"`
 	MissingCount       uint64 `json:"missing_count"`
 	RepairedCount      uint64 `json:"repaired_count"`
-	FailedCount        uint64 `json:"failed_count"`
-	LastError          string `json:"last_error,omitempty"`
 }
 
 var blockAuditMu sync.RWMutex
@@ -44,57 +40,64 @@ func snapshotBlockAuditStatus() BlockAuditStatus {
 	return blockAuditStatus
 }
 
-func StartStartupBlockAudit(db *indexer.Database) {
-	if !Globals.EnableStartupAudit {
+func StartBlockAudit(db *indexer.Database) {
+	if !Globals.EnableAudit {
+		updateBlockAuditStatus(func(status *BlockAuditStatus) {
+			status.Enabled = false
+			status.RepairEnabled = Globals.AuditRepair
+			status.Stage = "disabled"
+			status.StartedAt = 0
+			status.FinishedAt = 0
+			status.CurrentHeight = 0
+			status.FirstOverlapHeight = 0
+			status.InitialDBHeight = 0
+			status.ScannedCount = 0
+			status.MissingCount = 0
+			status.RepairedCount = 0
+		})
 		return
 	}
 
-	go runStartupBlockAudit(db)
+	go runBlockAudit(db)
 }
 
-func runStartupBlockAudit(db *indexer.Database) {
+func runBlockAudit(db *indexer.Database) {
 	now := time.Now().UnixMilli()
 	updateBlockAuditStatus(func(status *BlockAuditStatus) {
-		status.Enabled = Globals.EnableStartupAudit
-		status.RepairEnabled = Globals.StartupAuditRepair
-		status.Running = true
+		status.Enabled = Globals.EnableAudit
+		status.RepairEnabled = Globals.AuditRepair
 		status.Stage = "initializing"
 		status.StartedAt = now
 		status.FinishedAt = 0
 		status.CurrentHeight = 0
 		status.FirstOverlapHeight = 0
 		status.InitialDBHeight = 0
-		status.OverlapFound = false
 		status.ScannedCount = 0
 		status.MissingCount = 0
 		status.RepairedCount = 0
-		status.FailedCount = 0
-		status.LastError = ""
 	})
 
-	finish := func(stage, lastError string) {
+	finish := func(stage string) {
 		updateBlockAuditStatus(func(status *BlockAuditStatus) {
-			status.Running = false
 			status.Stage = stage
 			status.FinishedAt = time.Now().UnixMilli()
-			status.LastError = lastError
 		})
 	}
 
 	if db == nil {
-		finish("failed", "indexer database not initialized")
+		finish("failed")
 		return
 	}
 
 	lowestHeight, err := db.GetLowestBlockHeight()
 	if err != nil {
-		mlog(3, "§bStartupBlockAudit(): §4Error getting lowest indexed block height: §c%s", err)
-		finish("failed", err.Error())
+		mlog(3, "§bBlockAudit(): §4Error getting lowest indexed block height: §c%s", err)
+		finish("failed")
 		return
 	}
 	if lowestHeight == nil {
-		mlog(4, "§bStartupBlockAudit(): §7Skipping startup audit because the indexer has no indexed blocks yet")
-		finish("idle", "")
+		mlog(4, "§bBlockAudit(): §7Skipping block audit because the indexer has no indexed blocks yet")
+		finish("idle")
 		return
 	}
 
@@ -128,11 +131,10 @@ func runStartupBlockAudit(db *indexer.Database) {
 			overlapFound = true
 			updateBlockAuditStatus(func(status *BlockAuditStatus) {
 				status.Stage = "auditing"
-				status.OverlapFound = true
 				status.FirstOverlapHeight = height
 				status.ScannedCount = 1
 			})
-			mlog(4, "§bStartupBlockAudit(): §7Found first overlapping indexed block at height §9%d", height)
+			mlog(4, "§bBlockAudit(): §7Found first overlapping indexed block at height §9%d", height)
 			return nil
 		}
 
@@ -147,19 +149,15 @@ func runStartupBlockAudit(db *indexer.Database) {
 		updateBlockAuditStatus(func(status *BlockAuditStatus) {
 			status.MissingCount++
 		})
-		mlog(4, "§bStartupBlockAudit(): §7Missing canonical block at height §9%d §7hash §60x%s", height, hash)
+		mlog(4, "§bBlockAudit(): §7Missing canonical block at height §9%d §7hash §60x%s", height, hash)
 
-		if !Globals.StartupAuditRepair {
+		if !Globals.AuditRepair {
 			return nil
 		}
 
 		block, err := GetBlockByHexHash("0x" + hash)
 		if err != nil {
-			updateBlockAuditStatus(func(status *BlockAuditStatus) {
-				status.FailedCount++
-				status.LastError = err.Error()
-			})
-			mlog(3, "§bStartupBlockAudit(): §4Error retrieving missing canonical block §60x%s§4: §c%s", hash, err)
+			mlog(3, "§bBlockAudit(): §4Error retrieving missing canonical block §60x%s§4: §c%s", hash, err)
 			return nil
 		}
 
@@ -170,16 +168,16 @@ func runStartupBlockAudit(db *indexer.Database) {
 		return nil
 	})
 	if err != nil {
-		mlog(3, "§bStartupBlockAudit(): §4Audit failed: §c%s", err)
-		finish("failed", err.Error())
+		mlog(3, "§bBlockAudit(): §4Audit failed: §c%s", err)
+		finish("failed")
 		return
 	}
 
 	if !overlapFound {
-		mlog(4, "§bStartupBlockAudit(): §7No overlapping block hashes found between tfile history and the indexer database")
-		finish("no_overlap", "")
+		mlog(4, "§bBlockAudit(): §7No overlapping block hashes found between tfile history and the indexer database")
+		finish("no_overlap")
 		return
 	}
 
-	finish("completed", "")
+	finish("completed")
 }

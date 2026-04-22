@@ -42,8 +42,8 @@ func SetupFlags() bool {
 	flag.StringVar(&Globals.IndexerUser, "dbu", "root", "Indexer user")
 	flag.StringVar(&Globals.IndexerPassword, "dbpw", "", "Indexer password")
 	flag.StringVar(&Globals.IndexerDatabase, "dbdb", "mochimo", "Indexer database")
-	flag.BoolVar(&Globals.EnableStartupAudit, "startup_audit", false, "Enable background startup audit for canonical blocks in the indexer")
-	flag.BoolVar(&Globals.StartupAuditRepair, "startup_audit_repair", true, "Attempt to repair missing canonical blocks found during startup audit")
+	flag.BoolVar(&Globals.EnableAudit, "audit", true, "Enable the block audit")
+	flag.BoolVar(&Globals.AuditRepair, "audit_repair", false, "Attempt to repair missing canonical blocks found during the block audit")
 
 	flag.Parse()
 

@@ -114,6 +114,7 @@ func main() {
 
 	if Globals.EnableIndexer {
 		mlog(2, "§bmain(): §2Indexer enabled, adding indexer routes")
+		r.HandleFunc("/indexer/status", indexerStatusHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/search/transactions", searchTransactionsHandler).Methods("POST", "OPTIONS")
 		r.HandleFunc("/events/blocks", eventsBlocksHandler).Methods("POST", "OPTIONS")
 	}

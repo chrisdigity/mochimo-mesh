@@ -100,6 +100,7 @@ For detailed examples on how to use these endpoints, see our [Query Examples](.g
 
 These endpoints are available if the indexer is enabled.
 
+-   `/indexer/status` - Get indexer and continuity-audit status (requires indexer)
 -   `/search/transactions` - Search for transactions with various filters (requires indexer)
 -   `/events/blocks` - Track block additions and removals as sequenced events (requires indexer)
 
@@ -137,8 +138,8 @@ These endpoints are available if a ledger file path is specified.
 | `-dbu`              | string   | "root"                      | Indexer user                                                              |
 | `-dbpw`             | string   | ""                          | Indexer password                                                          |
 | `-dbdb`             | string   | "mochimo"                   | Indexer database                                                          |
-| `-startup_audit`    | bool     | false                       | Run a background startup audit to reconcile canonical block hashes        |
-| `-startup_audit_repair` | bool | true                        | Repair missing canonical blocks found by the startup audit               |
+| `-audit` | bool | true                        | Enable the block audit                                                    |
+| `-audit_repair` | bool | false                       | Repair missing canonical blocks found by the block audit                 |
 
 ### Environment Variables
 
@@ -234,15 +235,23 @@ To enable the indexer, you need to configure the database connection and enable 
     ./mesh -indexer -dbh your_db_host -dbp your_db_port -dbu your_db_user -dbpw your_db_password -dbdb your_db_name
     ```
 
-4.  **Startup Audit (Optional)**:
+4.  **Block Audit**:
 
-    When enabled, the startup audit scans the full `tfile.dat` history, looks for the first block hash already present in the indexer database, and then audits forward from that overlap point. Any canonical block hash present in `tfile.dat` but missing from the database is reported and, if repair mode is enabled, fetched and pushed into the indexer.
+    When the indexer is enabled, the block audit runs automatically in the background by default. It scans the full `tfile.dat` history, looks for the first block hash already present in the indexer database, and then audits forward from that overlap point. Any canonical block hash present in `tfile.dat` but missing from the database is reported and, if repair mode is enabled, fetched and pushed into the indexer.
+
+    In audit-only mode, the worker performs local `tfile.dat` reads plus indexer database queries. Enabling repair allows it to fetch missing blocks, which can add external node activity.
 
     ```bash
-    ./mesh -indexer -startup_audit -startup_audit_repair
+    ./mesh -indexer
+
+    # Optional: disable the block audit
+    ./mesh -indexer -audit=false
+
+    # Optional: allow the audit to repair missing canonical blocks
+    ./mesh -indexer -audit_repair
     ```
 
-    The audit runs in the background and does not block normal API startup or steady-state tip indexing. Audit progress is exposed through `/network/status` in the `block_audit` section.
+    The block audit runs in the background and does not block normal API startup or steady-state tip indexing. Audit progress is exposed through `/indexer/status` in the `block_audit` section.
 
 ## Statistics Configuration
 

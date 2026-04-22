@@ -48,8 +48,8 @@ var Globals = GlobalsType{
 	IndexerUser:                "root",
 	IndexerPassword:            "",
 	IndexerDatabase:            "mochimo",
-	EnableStartupAudit:         false,
-	StartupAuditRepair:         true,
+	EnableAudit:                true,
+	AuditRepair:                false,
 	BLOCK_BYHASH_CACHE_TIME:    60 * 60 * 24 * 7, // 7 days
 	BLOCK_BYNUM_CACHE_TIME:     5,
 	EnableLedgerCache:          false,
@@ -97,8 +97,8 @@ type GlobalsType struct {
 	IndexerUser                string
 	IndexerPassword            string
 	IndexerDatabase            string
-	EnableStartupAudit         bool
-	StartupAuditRepair         bool
+	EnableAudit                bool
+	AuditRepair                bool
 	BLOCK_BYHASH_CACHE_TIME    int
 	BLOCK_BYNUM_CACHE_TIME     int
 	LedgerPath                 string
