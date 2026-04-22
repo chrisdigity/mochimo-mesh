@@ -25,8 +25,14 @@ type BlockAuditStatus struct {
 	RepairedCount      uint64 `json:"repaired_count"`
 }
 
+type MissingBlock struct {
+	Height uint64 `json:"height"`
+	Hash   string `json:"hash"`
+}
+
 var blockAuditMu sync.RWMutex
 var blockAuditStatus = BlockAuditStatus{}
+var blockAuditMissingBlocks []MissingBlock
 
 func updateBlockAuditStatus(update func(*BlockAuditStatus)) {
 	blockAuditMu.Lock()
@@ -40,8 +46,43 @@ func snapshotBlockAuditStatus() BlockAuditStatus {
 	return blockAuditStatus
 }
 
+func resetBlockAuditMissingBlocks() {
+	blockAuditMu.Lock()
+	defer blockAuditMu.Unlock()
+	blockAuditMissingBlocks = nil
+}
+
+func snapshotBlockAuditMissingBlocks() []MissingBlock {
+	blockAuditMu.RLock()
+	defer blockAuditMu.RUnlock()
+	missingBlocks := make([]MissingBlock, len(blockAuditMissingBlocks))
+	copy(missingBlocks, blockAuditMissingBlocks)
+	return missingBlocks
+}
+
+func addBlockAuditMissingBlock(height uint64, hash string) {
+	blockAuditMu.Lock()
+	defer blockAuditMu.Unlock()
+	blockAuditMissingBlocks = append(blockAuditMissingBlocks, MissingBlock{
+		Height: height,
+		Hash:   hash,
+	})
+}
+
+func removeBlockAuditMissingBlock(height uint64, hash string) {
+	blockAuditMu.Lock()
+	defer blockAuditMu.Unlock()
+	for index := range blockAuditMissingBlocks {
+		if blockAuditMissingBlocks[index].Height == height && blockAuditMissingBlocks[index].Hash == hash {
+			blockAuditMissingBlocks = append(blockAuditMissingBlocks[:index], blockAuditMissingBlocks[index+1:]...)
+			return
+		}
+	}
+}
+
 func StartBlockAudit(db *indexer.Database) {
 	if !Globals.EnableAudit {
+		resetBlockAuditMissingBlocks()
 		updateBlockAuditStatus(func(status *BlockAuditStatus) {
 			status.Enabled = false
 			status.RepairEnabled = Globals.AuditRepair
@@ -62,6 +103,7 @@ func StartBlockAudit(db *indexer.Database) {
 }
 
 func runBlockAudit(db *indexer.Database) {
+	resetBlockAuditMissingBlocks()
 	now := time.Now().UnixMilli()
 	updateBlockAuditStatus(func(status *BlockAuditStatus) {
 		status.Enabled = Globals.EnableAudit
@@ -149,6 +191,7 @@ func runBlockAudit(db *indexer.Database) {
 		updateBlockAuditStatus(func(status *BlockAuditStatus) {
 			status.MissingCount++
 		})
+		addBlockAuditMissingBlock(height, hash)
 		mlog(4, "§bBlockAudit(): §7Missing canonical block at height §9%d §7hash §60x%s", height, hash)
 
 		if !Globals.AuditRepair {
@@ -162,6 +205,16 @@ func runBlockAudit(db *indexer.Database) {
 		}
 
 		db.PushBlock(block)
+		repairedBlock, err := db.GetBlockByHeightAndHash(height, hash)
+		if err != nil {
+			mlog(3, "§bBlockAudit(): §4Error verifying repaired block §60x%s§4: §c%s", hash, err)
+			return nil
+		}
+		if repairedBlock == nil {
+			mlog(3, "§bBlockAudit(): §4Repair did not index missing canonical block §60x%s", hash)
+			return nil
+		}
+		removeBlockAuditMissingBlock(height, hash)
 		updateBlockAuditStatus(func(status *BlockAuditStatus) {
 			status.RepairedCount++
 		})

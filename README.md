@@ -100,7 +100,8 @@ For detailed examples on how to use these endpoints, see our [Query Examples](.g
 
 These endpoints are available if the indexer is enabled.
 
--   `/indexer/status` - Get indexer and continuity-audit status (requires indexer)
+-   `/indexer/status` - Get indexer and block-audit status (requires indexer)
+-   `/indexer/missing` - Get unresolved missing blocks found by the block audit (requires indexer)
 -   `/search/transactions` - Search for transactions with various filters (requires indexer)
 -   `/events/blocks` - Track block additions and removals as sequenced events (requires indexer)
 
@@ -252,6 +253,8 @@ To enable the indexer, you need to configure the database connection and enable 
     ```
 
     The block audit runs in the background and does not block normal API startup or steady-state tip indexing. Audit progress is exposed through `/indexer/status` in the `block_audit` section.
+
+    Unresolved missing canonical blocks are exposed through `/indexer/missing`. That list is kept in memory, is reset when the process restarts, and is also reset at the beginning of each new block-audit run.
 
 ## Statistics Configuration
 
