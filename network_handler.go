@@ -37,12 +37,6 @@ type NetworkStatusResponse struct {
 	//Peers                  []string        `json:"peers"`
 }
 
-type IndexerStatusResponse struct {
-	Enabled           bool             `json:"enabled"`
-	DatabaseConnected bool             `json:"database_connected"`
-	BlockAudit        BlockAuditStatus `json:"block_audit"`
-}
-
 type HttpsStatusInfo struct {
 	Enabled     bool             `json:"enabled"`
 	Port        int              `json:"port,omitempty"`
@@ -110,29 +104,6 @@ func networkStatusHandler(w http.ResponseWriter, r *http.Request) {
 			Synced: Globals.IsSynced,
 		},
 		HttpsStatus: httpsStatus,
-	}
-	json.NewEncoder(w).Encode(response)
-}
-
-func indexerStatusHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := checkIdentifier(r)
-	if err != nil {
-		mlog(3, "§bindexerStatusHandler(): §4Wrong network identifier")
-		giveError(w, ErrWrongNetwork)
-		return
-	}
-
-	databaseConnected := false
-	if INDEXER_DB != nil {
-		if err := INDEXER_DB.Ping(); err == nil {
-			databaseConnected = true
-		}
-	}
-
-	response := IndexerStatusResponse{
-		Enabled:           Globals.EnableIndexer,
-		DatabaseConnected: databaseConnected,
-		BlockAudit:        snapshotBlockAuditStatus(),
 	}
 	json.NewEncoder(w).Encode(response)
 }
